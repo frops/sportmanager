@@ -1,9 +1,10 @@
-node_modules/
+*node_modules/
 .env
 *.env
 backend/app
 backend/main
 frontend/build/
 frontend/.next/
+frontend/node_modules/
 .DS_Store
 .railway

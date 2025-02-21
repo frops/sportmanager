@@ -49,11 +49,16 @@ var logger *zap.Logger
 
 func init() {
 	var err error
+	logConfig := zap.NewProductionConfig()
+
 	if os.Getenv("ENV") == config.EnvProduction {
-		logger, err = zap.NewProduction()
+		logConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+		logger, err = logConfig.Build()
 	} else {
-		logger, err = zap.NewDevelopment()
+		logConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		logger, err = logConfig.Build()
 	}
+
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
