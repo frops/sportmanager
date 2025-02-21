@@ -4,23 +4,23 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PeopleIcon from '@mui/icons-material/People';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
-    Fab,
-    Grid,
-    IconButton,
-    Stack,
-    TextField,
-    Typography
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Fab,
+  Grid,
+  IconButton,
+  Stack,
+  TextField,
+  Typography
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
@@ -28,6 +28,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { format } from 'date-fns';
 import { enGB } from 'date-fns/locale';
 import React, { useEffect, useState } from 'react';
+import { config } from '../config';
 
 interface Match {
   id: number;
@@ -112,7 +113,7 @@ const Matches: React.FC = () => {
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/matches');
+      const response = await fetch(`${config.backendUrl}/api/matches`);
       const data = await response.json();
       setMatches(data);
       setError(null);
@@ -133,7 +134,7 @@ const Matches: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/matches/${matchId}/join`, {
+      const response = await fetch(`${config.backendUrl}/api/matches/${matchId}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +157,7 @@ const Matches: React.FC = () => {
     if (!savedName) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/matches/${matchId}/leave`, {
+      const response = await fetch(`${config.backendUrl}/api/matches/${matchId}/leave`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +177,7 @@ const Matches: React.FC = () => {
 
   const handleRestoreMatch = async (matchId: number) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/matches/${matchId}/restore`, {
+      const response = await fetch(`${config.backendUrl}/api/matches/${matchId}/restore`, {
         method: 'POST',
       });
       if (!response.ok) {
@@ -194,7 +195,7 @@ const Matches: React.FC = () => {
     if (matchToDelete === null) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/matches/${matchToDelete}`, {
+      const response = await fetch(`${config.backendUrl}/api/matches/${matchToDelete}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
@@ -228,7 +229,7 @@ const Matches: React.FC = () => {
 
   const handleCreateMatch = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/matches', {
+      const response = await fetch(`${config.backendUrl}/api/matches`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -308,10 +309,10 @@ const Matches: React.FC = () => {
           </Grid>
         ) : (
           matches.map((match) => (
-            <Grid 
-              item 
-              xs={12} 
-              md={match.active ? 6 : 12} 
+            <Grid
+              item
+              xs={12}
+              md={match.active ? 6 : 12}
               key={match.id}
               sx={match.active ? {} : { opacity: 0.6 }}
             >
