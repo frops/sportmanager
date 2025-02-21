@@ -56,7 +56,7 @@ interface NewMatch {
   maxPlayers: number;
 }
 
-const PLAYER_NAME_KEY = 'footballPlayerName';
+const PLAYER_NAME_KEY = 'sportPlayerName';
 
 const getNextSunday = () => {
   const today = new Date();

@@ -1,6 +1,6 @@
 {
-  "short_name": "Футбольный менеджер",
-  "name": "Сервис для организации футбольных матчей",
+  "short_name": "Sport Manager",
+  "name": "Service for organizing sports matches",
   "icons": [
     {
       "src": "favicon.ico",
@@ -12,4 +12,4 @@
   "display": "standalone",
   "theme_color": "#000000",
   "background_color": "#ffffff"
-} 
+}

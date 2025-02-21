@@ -84,7 +84,7 @@ func runMigrations(db *gorm.DB) error {
 }
 
 func main() {
-	// Подключение к базе данных
+	// Database connection
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=require",
 		os.Getenv("PGHOST"),
 		os.Getenv("PGUSER"),
@@ -99,22 +99,22 @@ func main() {
 		logger.Fatal("Failed to connect to database", zap.Error(err))
 	}
 
-	// Запуск миграций
+	// Run migrations
 	if err := runMigrations(db); err != nil {
 		logger.Fatal("Failed to run migrations", zap.Error(err))
 	}
 
-	// Инициализация Telegram бота только если не запущен другой экземпляр
+	// Initialize Telegram bot only if no other instance is running
 	if os.Getenv("ENABLE_BOT") == "true" {
 		bot, err = tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_BOT_TOKEN"))
 		if err != nil {
 			logger.Fatal("Failed to initialize Telegram bot", zap.Error(err))
 		}
-		// Запуск Telegram бота в отдельной горутине
+		// Start Telegram bot in a separate goroutine
 		go runTelegramBot()
 	}
 
-	// Настройка Gin роутера
+	// Setup Gin router
 	if os.Getenv("ENV") == config.EnvProduction {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -153,7 +153,7 @@ func main() {
 	// API endpoints
 	api := r.Group("/api")
 	{
-		// Матчи
+		// Matches
 		api.GET("/matches", getMatches)
 		api.POST("/matches", createMatch)
 		api.POST("/matches/:id/join", joinMatch)
@@ -161,42 +161,42 @@ func main() {
 		api.DELETE("/matches/:id", deleteMatch)
 		api.POST("/matches/:id/restore", restoreMatch)
 
-		// Игроки
+		// Players
 		api.GET("/players", getPlayers)
 		api.POST("/players", createPlayer)
 	}
 
-	// Создаем HTTP сервер
+	// Create HTTP server
 	srv := &http.Server{
 		Addr:    config.DefaultServerPort,
 		Handler: r,
 	}
 
-	// Запускаем сервер в горутине
+	// Start server in a goroutine
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Failed to start server", zap.Error(err))
 		}
 	}()
 
-	// Ждем сигнал для graceful shutdown
+	// Wait for interrupt signal for graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	logger.Info("Shutting down server...")
 
-	// Контекст с таймаутом для graceful shutdown
+	// Context with timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Закрываем соединение с базой данных
+	// Close database connection
 	if sqlDB, err := db.DB(); err == nil {
 		if err := sqlDB.Close(); err != nil {
 			logger.Error("Error closing database connection", zap.Error(err))
 		}
 	}
 
-	// Останавливаем сервер
+	// Stop server
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Fatal("Server forced to shutdown", zap.Error(err))
 	}
@@ -215,12 +215,12 @@ func runTelegramBot() {
 			continue
 		}
 
-		// Обработка команд
+		// Handle commands
 		if update.Message.IsCommand() {
 			switch update.Message.Command() {
 			case "start":
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID,
-					"Welcome to Football Match Manager! Use /help for available commands.")
+					"Welcome to Sport Manager! Use /help for available commands.")
 				if _, err := bot.Send(msg); err != nil {
 					logger.Error("Failed to send telegram message", zap.Error(err))
 				}
@@ -354,7 +354,7 @@ func deleteMatch(c *gin.Context) {
 		return
 	}
 
-	// Просто отмечаем матч как неактивный
+	// Just mark the match as inactive
 	if err := db.Model(&match).Update("active", false).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to cancel match"})
 		return

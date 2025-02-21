@@ -8,7 +8,7 @@ const Header: React.FC = () => {
       <Toolbar>
         <SportsSoccerIcon sx={{ mr: 2 }} />
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Football Match Manager
+          Sport Manager
         </Typography>
       </Toolbar>
     </AppBar>
