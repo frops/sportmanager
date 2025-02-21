@@ -7,6 +7,8 @@ RUN go mod download
 
 COPY . .
 
+ENV GIN_MODE=release
+
 RUN go build -o main .
 
 EXPOSE 8080
