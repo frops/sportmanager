@@ -1,11 +1,12 @@
-module football-booking
+module sportmanager
 
-go 1.23
+go 1.22
 
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/rubenv/sql-migrate v1.7.1
+	go.uber.org/zap v1.27.0
 	gorm.io/driver/postgres v1.5.6
 	gorm.io/gorm v1.25.7
 )
@@ -36,6 +37,7 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/net v0.21.0 // indirect

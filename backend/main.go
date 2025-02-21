@@ -1,14 +1,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"sportmanager/internal/config"
 
 	"github.com/gin-gonic/gin"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	migrate "github.com/rubenv/sql-migrate"
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -38,6 +45,19 @@ type JoinMatchRequest struct {
 
 var db *gorm.DB
 var bot *tgbotapi.BotAPI
+var logger *zap.Logger
+
+func init() {
+	var err error
+	if os.Getenv("ENV") == config.EnvProduction {
+		logger, err = zap.NewProduction()
+	} else {
+		logger, err = zap.NewDevelopment()
+	}
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+}
 
 func runMigrations(db *gorm.DB) error {
 	sqlDB, err := db.DB()
@@ -54,7 +74,7 @@ func runMigrations(db *gorm.DB) error {
 		return fmt.Errorf("failed to apply migrations: %v", err)
 	}
 
-	log.Printf("Applied %d migrations", n)
+	logger.Info("Applied migrations", zap.Int("count", n))
 	return nil
 }
 
@@ -71,22 +91,47 @@ func main() {
 	var err error
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		logger.Fatal("Failed to connect to database", zap.Error(err))
 	}
 
 	// Запуск миграций
 	if err := runMigrations(db); err != nil {
-		log.Fatal("Failed to run migrations:", err)
+		logger.Fatal("Failed to run migrations", zap.Error(err))
 	}
 
-	// Инициализация Telegram бота
-	bot, err = tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_BOT_TOKEN"))
-	if err != nil {
-		log.Fatal("Failed to initialize Telegram bot:", err)
+	// Инициализация Telegram бота только если не запущен другой экземпляр
+	if os.Getenv("ENABLE_BOT") == "true" {
+		bot, err = tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_BOT_TOKEN"))
+		if err != nil {
+			logger.Fatal("Failed to initialize Telegram bot", zap.Error(err))
+		}
+		// Запуск Telegram бота в отдельной горутине
+		go runTelegramBot()
 	}
 
 	// Настройка Gin роутера
+	if os.Getenv("ENV") == config.EnvProduction {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.Default()
+
+	// Health check endpoint
+	r.GET(config.HealthCheckPath, func(c *gin.Context) {
+		sqlDB, err := db.DB()
+		if err != nil {
+			logger.Error("Failed to get database instance", zap.Error(err))
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable", "reason": "database error"})
+			return
+		}
+
+		if err := sqlDB.Ping(); err != nil {
+			logger.Error("Failed to ping database", zap.Error(err))
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable", "reason": "database connection error"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
 
 	// CORS middleware
 	r.Use(func(c *gin.Context) {
@@ -116,13 +161,42 @@ func main() {
 		api.POST("/players", createPlayer)
 	}
 
-	// Запуск Telegram бота в отдельной горутине
-	go runTelegramBot()
-
-	// Запуск сервера
-	if err := r.Run(":8080"); err != nil {
-		log.Fatal("Failed to start server:", err)
+	// Создаем HTTP сервер
+	srv := &http.Server{
+		Addr:    config.DefaultServerPort,
+		Handler: r,
 	}
+
+	// Запускаем сервер в горутине
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("Failed to start server", zap.Error(err))
+		}
+	}()
+
+	// Ждем сигнал для graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	logger.Info("Shutting down server...")
+
+	// Контекст с таймаутом для graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Закрываем соединение с базой данных
+	if sqlDB, err := db.DB(); err == nil {
+		if err := sqlDB.Close(); err != nil {
+			logger.Error("Error closing database connection", zap.Error(err))
+		}
+	}
+
+	// Останавливаем сервер
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Fatal("Server forced to shutdown", zap.Error(err))
+	}
+
+	logger.Info("Server exiting")
 }
 
 func runTelegramBot() {
@@ -142,14 +216,18 @@ func runTelegramBot() {
 			case "start":
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID,
 					"Welcome to Football Match Manager! Use /help for available commands.")
-				bot.Send(msg)
+				if _, err := bot.Send(msg); err != nil {
+					logger.Error("Failed to send telegram message", zap.Error(err))
+				}
 			case "help":
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID,
 					`Available commands:
 /matches - show upcoming matches
 /join [ID] - join a match
 /leave [ID] - leave a match`)
-				bot.Send(msg)
+				if _, err := bot.Send(msg); err != nil {
+					logger.Error("Failed to send telegram message", zap.Error(err))
+				}
 			}
 		}
 	}
