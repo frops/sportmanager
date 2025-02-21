@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	migrate "github.com/rubenv/sql-migrate"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -38,14 +39,33 @@ type JoinMatchRequest struct {
 var db *gorm.DB
 var bot *tgbotapi.BotAPI
 
+func runMigrations(db *gorm.DB) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get database instance: %v", err)
+	}
+
+	migrations := &migrate.FileMigrationSource{
+		Dir: "migrations",
+	}
+
+	n, err := migrate.Exec(sqlDB, "postgres", migrations, migrate.Up)
+	if err != nil {
+		return fmt.Errorf("failed to apply migrations: %v", err)
+	}
+
+	log.Printf("Applied %d migrations", n)
+	return nil
+}
+
 func main() {
 	// Подключение к базе данных
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_PORT"),
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=require",
+		os.Getenv("PGHOST"),
+		os.Getenv("PGUSER"),
+		os.Getenv("PGPASSWORD"),
+		os.Getenv("PGDATABASE"),
+		os.Getenv("PGPORT"),
 	)
 
 	var err error
@@ -54,8 +74,10 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Миграция базы данных
-	db.AutoMigrate(&Match{}, &Player{})
+	// Запуск миграций
+	if err := runMigrations(db); err != nil {
+		log.Fatal("Failed to run migrations:", err)
+	}
 
 	// Инициализация Telegram бота
 	bot, err = tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_BOT_TOKEN"))

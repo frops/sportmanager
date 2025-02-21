@@ -150,6 +150,8 @@ cat ~/.ssh/deploy_key.pub | ssh root@your_droplet_ip "cat >> ~/.ssh/authorized_k
 ```bash
 docker compose logs -f
 ```
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+
 
 - Просмотр статуса контейнеров:
 ```bash
