@@ -40,7 +40,8 @@ type Player struct {
 }
 
 type JoinMatchRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name       string `json:"name" binding:"required"`
+	TelegramID int64  `json:"telegramId,omitempty"`
 }
 
 var db *gorm.DB
@@ -304,10 +305,20 @@ func joinMatch(c *gin.Context) {
 	}
 
 	var player Player
-	result := db.Where("name = ?", req.Name).FirstOrCreate(&player, Player{Name: req.Name})
+	result := db.Where("name = ?", req.Name).FirstOrCreate(&player, Player{
+		Name:       req.Name,
+		TelegramID: req.TelegramID,
+	})
 	if result.Error != nil {
 		c.JSON(500, gin.H{"error": "Failed to create player"})
 		return
+	}
+
+	// Update TelegramID if it's provided and different
+	if req.TelegramID != 0 && player.TelegramID != req.TelegramID {
+		if err := db.Model(&player).Update("telegram_id", req.TelegramID).Error; err != nil {
+			logger.Error("Failed to update player's Telegram ID", zap.Error(err))
+		}
 	}
 
 	if err := db.Model(&match).Association("Players").Append(&player); err != nil {

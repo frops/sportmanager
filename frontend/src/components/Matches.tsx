@@ -56,6 +56,23 @@ interface NewMatch {
   maxPlayers: number;
 }
 
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp: {
+        initDataUnsafe: {
+          user?: {
+            id: number;
+            first_name: string;
+            last_name?: string;
+            username?: string;
+          };
+        };
+      };
+    };
+  }
+}
+
 const PLAYER_NAME_KEY = 'sportPlayerName';
 
 const getNextSunday = () => {
@@ -90,9 +107,20 @@ const Matches: React.FC = () => {
 
   useEffect(() => {
     fetchMatches();
-    const savedName = localStorage.getItem(PLAYER_NAME_KEY);
-    if (savedName) {
-      setPlayerName(savedName);
+
+    // Try to get name from Telegram WebApp
+    const telegramUser = window.Telegram?.WebApp.initDataUnsafe.user;
+    if (telegramUser) {
+      const name = telegramUser.username ||
+        `${telegramUser.first_name}${telegramUser.last_name ? ` ${telegramUser.last_name}` : ''}`;
+      setPlayerName(name);
+      localStorage.setItem(PLAYER_NAME_KEY, name);
+    } else {
+      // If not in Telegram, try to get from localStorage
+      const savedName = localStorage.getItem(PLAYER_NAME_KEY);
+      if (savedName) {
+        setPlayerName(savedName);
+      }
     }
   }, []);
 
@@ -134,12 +162,16 @@ const Matches: React.FC = () => {
     }
 
     try {
+      const telegramUser = window.Telegram?.WebApp.initDataUnsafe.user;
       const response = await fetch(`${config.backendUrl}/api/matches/${matchId}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: savedName }),
+        body: JSON.stringify({
+          name: savedName,
+          telegramId: telegramUser?.id
+        }),
       });
       if (!response.ok) {
         throw new Error('Failed to join match');
